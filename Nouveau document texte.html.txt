@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculateur de Tonnage Presse - Open Source</title>
+    <!-- Tailwind CSS pour un design moderne -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f7f9fb; }
+        input[type="number"] { -moz-appearance: textfield; }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <div class="max-w-2xl mx-auto bg-white p-6 sm:p-10 shadow-2xl rounded-xl border border-gray-100">
+        <header class="mb-6 border-b pb-3">
+            <h1 class="text-3xl font-extrabold text-blue-800">Injection Tonnage Sim</h1>
+            <p class="text-sm text-gray-500 uppercase tracking-widest">Outil de calcul Open Source</p>
+        </header>
+
+        <div class="space-y-6">
+            <!-- Surface -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Surface Projetée ($S_{proj}$)</label>
+                <div class="relative">
+                    <input type="number" id="surface" value="1250" class="w-full pl-3 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-lg" oninput="calculateTonnage()">
+                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none"><span class="text-gray-500">cm²</span></div>
+                </div>
+            </div>
+
+            <!-- Épaisseur -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Épaisseur Moyenne ($E$)</label>
+                <div class="relative">
+                    <input type="number" id="thickness" value="2.8" step="0.1" class="w-full pl-3 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-lg" oninput="calculateTonnage()">
+                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none"><span class="text-gray-500">mm</span></div>
+                </div>
+            </div>
+
+            <!-- Points d'injection -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Points d'injection : <span id="gates-value" class="font-bold text-blue-600">1</span></label>
+                <input type="range" id="gates" min="1" max="5" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" oninput="updateGatesLabel(); calculateTonnage()">
+                <div class="flex justify-between text-xs text-gray-400 px-1 mt-1">
+                    <span>1 (100%)</span><span>2 (80%)</span><span>3 (60%)</span><span>4 (40%)</span><span>5 (40% min)</span>
+                </div>
+            </div>
+
+            <!-- Matière -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Famille de Matière</label>
+                <select id="material" class="w-full py-3 px-3 border border-gray-300 bg-white rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-lg" onchange="calculateTonnage()">
+                    <option value="PP_PE">PP / PE (~0.45 T/cm²)</option>
+                    <option value="ABS_PS">ABS / PS (~0.60 T/cm²)</option>
+                    <option value="ABS_PC" selected>ABS / PC (~0.70 T/cm²)</option>
+                    <option value="PC_PA">PC / PA (~0.80 T/cm²)</option>
+                    <option value="Reinforced">Chargé FB (~1.00 T/cm²)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="mt-8 pt-6 border-t border-gray-200">
+            <div class="bg-blue-50 p-6 rounded-xl border-2 border-blue-200 text-center">
+                <p class="text-sm text-gray-600 mb-2 uppercase tracking-wider">Tonnage Minimum Requis (+10% sécurité)</p>
+                <p id="tonnage-result" class="text-6xl font-extrabold text-blue-900 leading-none">0</p>
+                <p class="text-2xl font-semibold text-blue-700 mt-2">Tonnes (T)</p>
+            </div>
+        </div>
+
+        <footer class="mt-10 text-center text-xs text-gray-400">
+            <p>Projet Open Source disponible sur GitHub</p>
+        </footer>
+    </div>
+
+    <script>
+        const REFERENCE_THICKNESS_MM = 3.0;
+        const MATERIAL_FACTORS = {
+            'PP_PE': { baseK: 0.45, name: 'PP / PE' },
+            'ABS_PS': { baseK: 0.60, name: 'ABS / PS' },
+            'ABS_PC': { baseK: 0.70, name: 'ABS / PC' },
+            'PC_PA': { baseK: 0.80, name: 'PC / PA' },
+            'Reinforced': { baseK: 1.00, name: 'Chargé' }
+        };
+
+        function updateGatesLabel() {
+            document.getElementById('gates-value').textContent = document.getElementById('gates').value;
+        }
+
+        function calculateTonnage() {
+            const surfaceProj = parseFloat(document.getElementById('surface').value) || 0;
+            const thickness = parseFloat(document.getElementById('thickness').value) || 0;
+            const numGates = parseInt(document.getElementById('gates').value) || 1;
+            const materialKey = document.getElementById('material').value;
+
+            const materialData = MATERIAL_FACTORS[materialKey];
+            if (!materialData) return;
+
+            let c_thickness = Math.max(0.6, Math.min(1.5, 1 + (REFERENCE_THICKNESS_MM - thickness) / 10));
+            let c_gates = Math.max(0.4, 1.0 - (numGates - 1) * 0.20);
+
+            const k_final = materialData.baseK * c_thickness * c_gates;
+            const tonnage = (surfaceProj * k_final) * 1.1;
+
+            document.getElementById('tonnage-result').textContent = Math.ceil(tonnage);
+        }
+
+        document.addEventListener('DOMContentLoaded', calculateTonnage);
+    </script>
+</body>
+</html>
