@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculateur de Tonnage Presse</title>
+    <!-- Chargement de Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Configuration du style global */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+        }
+        /* Style pour les champs de saisie */
+        input[type="number"] {
+            -moz-appearance: textfield; /* Firefox */
+        }
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <div class="max-w-2xl mx-auto bg-white p-6 sm:p-10 shadow-2xl rounded-xl border border-gray-100">
+        <h1 class="text-3xl font-extrabold text-blue-800 mb-6 border-b pb-3">
+            Simulation de la Force de Verrouillage
+        </h1>
+        <p class="text-gray-600 mb-8">
+            Estimez le tonnage presse requis. Cette version applique une réduction de 20% de la pression par point d'injection supplémentaire.
+        </p>
+
+        <!-- Formulaire de Saisie des Paramètres -->
+        <div class="space-y-6">
+
+            <!-- 1. Surface Projetée -->
+            <div>
+                <label for="surface" class="block text-sm font-medium text-gray-700 mb-1">
+                    Surface Projetée ($S_{proj}$)
+                </label>
+                <div class="relative rounded-md shadow-sm">
+                    <input type="number" id="surface" value="1250" min="1" step="1"
+                           class="w-full pl-3 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-lg"
+                           oninput="calculateTonnage()">
+                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        <span class="text-gray-500 sm:text-sm">cm²</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Épaisseur de la Pièce -->
+            <div>
+                <label for="thickness" class="block text-sm font-medium text-gray-700 mb-1">
+                    Épaisseur Moyenne ($E$)
+                </label>
+                <div class="relative rounded-md shadow-sm">
+                    <input type="number" id="thickness" value="2.8" min="0.1" step="0.1"
+                           class="w-full pl-3 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-lg"
+                           oninput="calculateTonnage()">
+                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        <span class="text-gray-500 sm:text-sm">mm</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Points d'injection -->
+            <div>
+                <label for="gates" class="block text-sm font-medium text-gray-700 mb-1">
+                    Nombre de points d'injection : <span id="gates-value" class="font-bold text-blue-600">1</span>
+                </label>
+                <input type="range" id="gates" min="1" max="5" value="1"
+                       class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                       oninput="updateGatesLabel(); calculateTonnage()">
+                <div class="flex justify-between text-xs text-gray-400 px-1 mt-1">
+                    <span>1 (100%)</span>
+                    <span>2 (80%)</span>
+                    <span>3 (60%)</span>
+                    <span>4 (40%)</span>
+                    <span>5 (40% min)</span>
+                </div>
+                <p class="text-xs text-gray-500 mt-2 italic text-blue-600">Réduction de 20% de la pression par point supplémentaire.</p>
+            </div>
+
+            <!-- 4. Famille de Matière Plastique -->
+            <div>
+                <label for="material" class="block text-sm font-medium text-gray-700 mb-1">
+                    Famille de Matière Plastique
+                </label>
+                <select id="material"
+                        class="w-full py-3 px-3 border border-gray-300 bg-white rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-lg"
+                        onchange="calculateTonnage()">
+                    <option value="PP_PE">PP / PE (Basse viscosité - ~0.45 T/cm²)</option>
+                    <option value="ABS_PS">ABS / PS (Viscosité moyenne - ~0.60 T/cm²)</option>
+                    <option value="ABS_PC" selected>ABS / PC (Mélange - ~0.70 T/cm²)</option>
+                    <option value="PC_PA">PC / PA (Haute viscosité - ~0.80 T/cm²)</option>
+                    <option value="Reinforced">Chargé Fibre de Verre (~1.00 T/cm²)</option>
+                </select>
+            </div>
+
+        </div>
+
+        <!-- Section de Résultat -->
+        <div class="mt-8 pt-6 border-t border-gray-200">
+            <h2 class="text-xl font-semibold text-blue-700 mb-4">Résultat de la Simulation</h2>
+            
+            <div id="result-box" class="bg-blue-50 p-6 rounded-xl border-2 border-blue-200 text-center shadow-inner">
+                <p class="text-sm text-gray-600 mb-2 uppercase tracking-wider">Tonnage Presse Requis (Sécurité incluse)</p>
+                <p id="tonnage-result" class="text-6xl font-extrabold text-blue-900 leading-none">
+                    0.0
+                </p>
+                <p class="text-2xl font-semibold text-blue-700 mt-2">
+                    Tonnes (T)
+                </p>
+            </div>
+
+            <!-- Détails de la Simulation -->
+            <div class="mt-6 text-sm bg-gray-50 p-4 rounded-lg">
+                <h3 class="font-bold text-gray-700 mb-2">Détails des coefficients :</h3>
+                <ul class="space-y-1 text-gray-600">
+                    <li id="detail-k-base">Base matière : 0 T/cm²</li>
+                    <li id="detail-c-thickness">Correction épaisseur : x1.0</li>
+                    <li id="detail-c-gates" class="text-blue-700 font-medium">Correction points d'injection (-20%/point) : x1.0</li>
+                    <li class="font-bold pt-1 border-t mt-1" id="detail-k-final">Pression moyenne calculée : 0 T/cm²</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const REFERENCE_THICKNESS_MM = 3.0;
+
+        const MATERIAL_FACTORS = {
+            'PP_PE': { baseK: 0.45, name: 'PP / PE' },
+            'ABS_PS': { baseK: 0.60, name: 'ABS / PS' },
+            'ABS_PC': { baseK: 0.70, name: 'ABS / PC' },
+            'PC_PA': { baseK: 0.80, name: 'PC / PA' },
+            'Reinforced': { baseK: 1.00, name: 'Chargé' }
+        };
+
+        function updateGatesLabel() {
+            const gates = document.getElementById('gates').value;
+            document.getElementById('gates-value').textContent = gates;
+        }
+
+        function calculateTonnage() {
+            const surfaceProj = parseFloat(document.getElementById('surface').value) || 0;
+            const thickness = parseFloat(document.getElementById('thickness').value) || 0;
+            const numGates = parseInt(document.getElementById('gates').value) || 1;
+            const materialKey = document.getElementById('material').value;
+
+            const materialData = MATERIAL_FACTORS[materialKey];
+            let k_base = materialData ? materialData.baseK : 0;
+            
+            let c_thickness = 1.0;
+            let c_gates = 1.0;
+            let finalTonnage = 0;
+            
+            if (surfaceProj > 0 && thickness > 0 && k_base > 0) {
+                // 1. Correction d'épaisseur
+                c_thickness = 1 + (REFERENCE_THICKNESS_MM - thickness) / 10;
+                c_thickness = Math.max(0.6, Math.min(1.5, c_thickness));
+
+                // 2. Correction points d'injection (Nouvelle règle : -20% par point sup)
+                // Formule : 1.0 - (N-1)*0.20
+                c_gates = 1.0 - (numGates - 1) * 0.20;
+                
+                // On fixe une limite basse (floor) à 40% de la pression initiale 
+                // pour garder une cohérence physique minimale.
+                c_gates = Math.max(0.4, c_gates); 
+
+                const k_final = k_base * c_thickness * c_gates;
+                finalTonnage = surfaceProj * k_final;
+
+                // Mise à jour de l'UI
+                document.getElementById('detail-k-base').textContent = `Base matière (${materialData.name}) : ${k_base.toFixed(2)} T/cm²`;
+                document.getElementById('detail-c-thickness').textContent = `Correction épaisseur : x${c_thickness.toFixed(3)}`;
+                document.getElementById('detail-c-gates').textContent = `Correction points d'injection (-20%/point) : x${c_gates.toFixed(2)}`;
+                document.getElementById('detail-k-final').textContent = `Pression moyenne calculée : ${k_final.toFixed(3)} T/cm²`;
+            }
+
+            // Marge de sécurité de 10%
+            const tonnageWithSecurity = finalTonnage * 1.1; 
+            document.getElementById('tonnage-result').textContent = Math.ceil(tonnageWithSecurity);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            updateGatesLabel();
+            calculateTonnage();
+        });
+    </script>
+</body>
+</html>
